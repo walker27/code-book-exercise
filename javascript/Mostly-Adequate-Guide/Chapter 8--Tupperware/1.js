@@ -1,71 +1,11 @@
-function makeHr(content) {
-  console.log('==========' + (content || '') + '==========');
-}
-var _ = {
-  prop: function(x) {
-    return function(obj) {
-      return obj[x];
-    }
-  }
-}
-
-function match(reg) {
-  return function(x) {
-    return x.match(reg);
-  }
-}
-
-function concat(y) {
-  return function(x) {
-    return x + y;
-  }
-}
-
-function add(num) {
-  return function(x) {
-    return x + num;
-  }
-}
+'use strict';
+var {
+  map, makeHr, match, concat, concatLeft, add, curry, compose, log, _, id, split
+} = require('./dependency.js');
+/*==================== 以上为所需要不相关方法 ====================*/
 
 
-function curry(f) {
-  var temp = null;
-  var args = [];
-  var len = f.length;
-  temp = function() {
-    // args.push(arguments[0]);
-    // console.log('array:',Array.prototype.slice.call(arguments));
-    var args = Array.prototype.slice.call(arguments)
-    if (args.length >= len) {
-      // console.log('going to execute', args);
-      return f.apply(null, args);
-    } else {
-      return function() {
-
-        return temp.apply(null, args.concat(Array.prototype.slice.call(arguments)));
-      };
-    }
-  }
-  return temp;
-}
-
-function compose() {
-  // 第一次见slice还能用于"拟数组"对象
-  var arg = Array.prototype.slice.call(arguments);
-  // console.log('arg:',arg);
-  // console.log('slice:',Array.prototype.slice);
-  return function(x) {
-    // console.log('temp',temp);
-    return arg.reduceRight(function(result, ele) {
-      return ele(result)
-    }, x);
-  }
-}
-
-/*========== 以上为所需要不相关方法 ==========*/
-
-
-
+/*========== ==========*/
 var Container = function(x) {
   this.__value = x;
 }
@@ -75,19 +15,18 @@ Container.of = function(x) {
 };
 
 
-// console.log(Container.of(3));
-// console.log(Container.of(Container.of({
-//   name: "yoda"
-// })));
 
 // 第一个functor
 
 Container.prototype.map = function(f) {
   return Container.of(f(this.__value));
 }
-Container.prototype.log = function(title) {
-  console.log((title ? title + ':' : ''), this);
-}
+
+Container.prototype.ifShowLog = false;
+Container.prototype.log = log;
+Container.prototype.makeHr = makeHr;
+
+makeHr(Container.prototype.ifShowLog, 'Container');
 
 Container.of(2).map(function(two) {
   return two + 2;
@@ -98,11 +37,11 @@ Container.of('falmethrowers').map(function(s) {
 }).log();
 
 
-Container.of('bombs').map(concat(' away')).map(_.prop('length')).log();
+Container.of('bombs').map(concatLeft(' away')).map(_.prop('length')).log();
 
 
 
-makeHr();
+/*========== 薛定谔的 Maybe ==========*/
 
 var Maybe = function(x) {
   this.__value = x;
@@ -120,9 +59,11 @@ Maybe.prototype.map = function(f) {
   var res = this.isNothing() ? Maybe.of(null) : Maybe.of(f(this.__value));
   return res;
 }
-Maybe.prototype.log = function(title) {
-  console.log((title ? title + ':' : ''), this);
-}
+
+Maybe.prototype.ifShowLog = false;
+Maybe.prototype.log = log;
+
+makeHr(Maybe.prototype.ifShowLog, '薛定谔的 Maybe');
 
 Maybe.of('Malkovich Malkovich').map(match(/a/ig)).log('Malkovich Malkovich');
 
@@ -137,15 +78,9 @@ Maybe.of({
   age: 14
 }).map(_.prop('age')).map(add(10)).log('age is 14');
 
-makeHr();
+makeHr(Maybe.prototype.ifShowLog);
 
 
-
-function map(f) {
-  return function(x) {
-    return x.map(f);
-  }
-}
 
 var safeHead = function(xs) {
   return Maybe.of(xs[0]);
@@ -161,13 +96,12 @@ streetName({
     street: 'Shady Ln.',
     number: 4201
   }]
-}).log();
+}).log(105);
 
 
-makeHr();
+makeHr(Maybe.prototype.ifShowLog);
 
 var withdraw = curry(function(amout, account) {
-  // console.log('withdraw:', arguments);
   return account.balance >= amout ? Maybe.of({
     balance: account.balance - amout
   }) : Maybe.of(null);
@@ -195,7 +129,7 @@ getTwenty({
   balance: 20.00
 }).log();
 
-makeHr();
+makeHr(Maybe.prototype.ifShowLog);
 
 var maybe = curry(function(x, f, m) {
   return m.isNothing() ? x : f(m.__value);
@@ -210,9 +144,9 @@ Maybe.of(getTwenty({
   balance: 10.00
 })).log();
 
-makeHr('"纯"错误处理');
+/*========== "纯"错误处理 ==========*/
 
-var Left = funciton(x) {
+var Left = function(x) {
   this.__value = x
 };
 
@@ -220,19 +154,125 @@ Left.of = function(x) {
   return new Left(x);
 };
 
-Left.prototype.map = function(f){
+Left.prototype.map = function(f) {
   // return Left.of(f(this.__value));
   return this;
 }
+Left.prototype.ifShowLog = false;
+Left.prototype.log = log;
 
-var Right = function(x){
+var Right = function(x) {
   this.__value = x;
 }
 
-Right.of = function(x){
+Right.of = function(x) {
   return new Right(x);
 }
 
-Right.prototype.map = function(f){
+Right.prototype.map = function(f) {
   return Right.of(f(this.__value));
 }
+Right.prototype.ifShowLog = false;
+Right.prototype.log = log;
+
+makeHr(Right.prototype.ifShowLog, '"纯"错误处理');
+
+Right.of("rain").map(function(str) {
+  return "b" + str;
+}).log();
+
+Left.of('rain').map(function(str) {
+  return 'b' + str;
+}).log();
+
+var moment = require('moment');
+var getAge = curry(function(now, user) {
+  var birthdate = moment(user.birthdate, 'YYYY-MM-DD');
+  if (!birthdate.isValid())
+    return Left.of('Birth date could not be parsed').log();
+  return Right.of(now.diff(birthdate, 'years')).log();
+})
+getAge(moment(), {
+  birthdate: '2005-12-12'
+});
+getAge(moment(), {
+  birthdate: 'xxxx'
+});
+
+
+var fortune = compose(concat('If you survive, you will be '), add(1));
+var zoltar = compose(map(fortune), getAge(moment()));
+
+zoltar({
+  birthdate: '2000-12-12'
+}).log();
+
+
+var either = curry(function(f, g, e) {
+  switch (e.constructor) {
+    case Left:
+      return f(e.__value);
+    case Right:
+      return g(e.__value);
+  }
+});
+
+var zoltar = compose(either(id, fortune), getAge(moment()));
+
+zoltar({
+  birthdate: '2001-12-01'
+});
+
+zoltar({
+  birthdate: 'ballons'
+});
+
+
+/*========== Old McDonald had Effects... ==========*/
+
+var IO = function(f) {
+  this._unsafePerformIO = f;
+}
+
+IO.of = function(x) {
+  return new IO(function() {
+    return x;
+  })
+}
+
+IO.prototype.map = function(f) {
+  return new IO(_.compose(f, this._unsafePerformIO));
+}
+IO.prototype.ifShowLog = true;
+IO.prototype.log = function(){
+  console.log(this._unsafePerformIO());
+  return this;
+};
+
+makeHr(IO.prototype.ifShowLog, 'Old McDonald had Effects...');
+
+var simWindow = {
+  innerWidth: 1430,
+  location: {
+    href:'http://localhost:8800/blog/posts'
+  }
+};
+var io_window = new IO(function() {
+  return simWindow
+});
+
+io_window.map(function(win) {
+  return win.innerWidth
+});
+
+io_window.map(_.prop('location')).map(_.prop('href')).map(split('/')).log();
+
+// var $ = function(selector){
+//   return new IO(function(){
+//     return document.querySelectorAll(selector);
+//   })
+// }
+
+// $('#myDiv').map(head).map(function(div){
+//   return div.innerHTML;
+// });
