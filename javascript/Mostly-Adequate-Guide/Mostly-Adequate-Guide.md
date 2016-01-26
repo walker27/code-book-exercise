@@ -1,1 +1,1 @@
-#<<Mostly Adequate Guide>>
+#\<\<Mostly Adequate Guide\>\>
