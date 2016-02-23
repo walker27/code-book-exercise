@@ -1,7 +1,14 @@
 'use strict';
 var {
-  map, makeHr, match, concat, concatLeft, add, curry, compose, log, _, id, split
+  matches: match,
+  last,
+  head,
+} = require('lodash');
+var moment = require('moment');
+var {
+  map, makeHr, log, concatLeft, _, add, compose, id, curry, concat, split, filter, eq
 } = require('./dependency.js');
+// var test = require('lodash');
 /*==================== 以上为所需要不相关方法 ====================*/
 
 
@@ -87,7 +94,7 @@ var safeHead = function(xs) {
 }
 
 var streetName = compose(map(_.prop('street')), safeHead, _.prop('addresses'));
-
+console.log(map(_.prop('street')));
 streetName({
   addresses: []
 }).log();
@@ -185,7 +192,7 @@ Left.of('rain').map(function(str) {
   return 'b' + str;
 }).log();
 
-var moment = require('moment');
+
 var getAge = curry(function(now, user) {
   var birthdate = moment(user.birthdate, 'YYYY-MM-DD');
   if (!birthdate.isValid())
@@ -244,7 +251,7 @@ IO.prototype.map = function(f) {
   return new IO(_.compose(f, this._unsafePerformIO));
 }
 IO.prototype.ifShowLog = true;
-IO.prototype.log = function(){
+IO.prototype.log = function() {
   console.log(this._unsafePerformIO());
   return this;
 };
@@ -254,7 +261,7 @@ makeHr(IO.prototype.ifShowLog, 'Old McDonald had Effects...');
 var simWindow = {
   innerWidth: 1430,
   location: {
-    href:'http://localhost:8800/blog/posts'
+    href: 'http://localhost:8800/blog/posts?a=b&searchTerm=wafflehouse&c=d'
   }
 };
 var io_window = new IO(function() {
@@ -273,6 +280,55 @@ io_window.map(_.prop('location')).map(_.prop('href')).map(split('/')).log();
 //   })
 // }
 
-// $('#myDiv').map(head).map(function(div){
+// $('#myDiv').map(safeHead).map(function(div){
 //   return div.innerHTML;
 // });
+/* 示例 */
+////// 纯代码库: lib/params.js //////
+// url :: IO String
+var url = new IO(function() {
+  return simWindow.location.href;
+});
+
+// toPairs = String -> [[String]]
+var toPairs = compose(map(split('=')), split('&'));
+
+// params :: String -> [[String]]
+var params = compose(toPairs, last, split('?'));
+
+// findParams :: String -> IO Maybe [String]
+var findParams = function(key) {
+  return map(compose(Maybe.of, filter(compose(eq(key), head)), params), url);
+};
+
+////// 非纯调用代码: main.js //////
+
+// 调用 __value()  来运行它
+// console.log(findParams('searchTerm'));
+findParams('searchTerm')._unsafePerformIO().log();
+// Mabye(['searchTerm','wafflehouse']);
+
+
+/*========== Asynchronous Tasks ==========*/
+var fs = require('fs');
+/* 这个库看不懂，好像很难用，下面相关代码可能不能直接得到注释中的结果 */
+var folktale = require('folktale');
+var Task = folktale.data.Task;
+console.log(folktale);
+console.log(Task);
+// readFile :: String -> Task(Error, JSON)
+var readFile = function(filename) {
+  return new Task(function(reject, result) {
+    fs.readFile(filename, 'utf-8', function(err, data) {
+      err ? reject(err) : result(data);
+    })
+  })
+}
+
+readFile('metamorphosis').map(split('\n')).map(head);
+// Task("One morning, as Gregor Samsa was waking up from anxious dreams, he discovered that
+// in bed he had been changed into a monstrous verminous bug.")
+Task.of(3).map(function(three) {
+  return three + 1;
+});
+// Task(4)

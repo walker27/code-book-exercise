@@ -35,12 +35,6 @@ var dependency = {};
     }
   }
 
-  self.map = function(f) {
-    return function(x) {
-      return x.map(f);
-    }
-  }
-
 
 
   self.add = function(num) {
@@ -70,7 +64,9 @@ var dependency = {};
     }
     return temp;
   }
-
+  self.map = self.curry(function(f, x) {
+    return x.map(f);
+  });
   self.compose = function() {
     // 第一次见slice还能用于"拟数组"对象
     var arg = Array.prototype.slice.call(arguments);
@@ -83,6 +79,22 @@ var dependency = {};
       }, x);
     }
   }
+  self.head = function(x) {
+    return x[0];
+  }
+  self.filter = self.curry(function(filterFunc, arr) {
+    // return arr.filter(callback);
+    return arr.filter(filterFunc)[0]
+      // return getFunc(analyzeFunc(str));
+  });
+  self.eq = self.curry(function(key, str) {
+    if (key == str)
+      return true;
+  });
+  self.last = function(x) {
+    return x[x.length - 1];
+  }
+
 
   self.log = function(line, title) {
     if (typeof line != 'number') {
@@ -104,10 +116,10 @@ var dependency = {};
         return obj[x];
       }
     },
-    compose:self.compose
+    compose: self.compose
   };
-  self.split = function(char){
-    return function(str){
+  self.split = function(char) {
+    return function(str) {
       return str.split(char);
     }
   }
